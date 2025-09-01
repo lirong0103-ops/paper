@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <title>紙飛機試算分數</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Tailwind CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="min-h-screen bg-gradient-to-b from-sky-50 to-white text-gray-900">
+    <div class="max-w-6xl mx-auto p-4 md:p-6">
+      <header class="mb-4 md:mb-6">
+        <h1 class="text-xl md:text-3xl font-bold">紙飛機試算分數</h1>
+        <p class="text-xs md:text-sm text-gray-600 mt-1">紙飛機計算器，即時計算戰力。</p>
+      </header>
+
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6" id="app"></div>
+    </div>
+
+    <script>
+      const defaultItems = [
+        { name: "技能", score: 10, formula: "mul", img: "https://i.postimg.cc/fWpSJGNL/skill.jpg" },
+        { name: "寵物", score: 15, formula: "mul", img: "https://i.postimg.cc/9FytddCy/pet.jpg" },
+        { name: "招式", score: 1, formula: "ten_div", img: "https://i.postimg.cc/9QWTysxj/move.jpg" },
+        { name: "祕寶", score: 3, formula: "ten_div", img: "https://i.postimg.cc/1zXqjwhC/treasure.jpg" },
+        { name: "騎寵", score: 2, formula: "mul", img: "https://i.postimg.cc/yNGZ4x7V/ride.jpg" },
+      ];
+
+      function createSection(title, container) {
+        let state = {
+          items: defaultItems.map((it) => ({ ...it, owned: "" })),
+          dailyTask: "100",
+          currentPower: "",
+          anomalyPower: "",
+        };
+
+        const wrapper = document.createElement("div");
+        wrapper.className = "rounded-2xl shadow p-4 bg-white/90 border border-gray-100";
+
+        function render() {
+          wrapper.innerHTML = "";
+
+          const header = document.createElement("div");
+          header.className = "flex items-center justify-between gap-2 mb-3";
+          header.innerHTML = `
+            <h2 class="text-lg md:text-xl font-semibold">${title}</h2>
+            <button class="px-2 py-1 rounded-xl border text-xs hover:bg-gray-50">重設</button>
+          `;
+          header.querySelector("button").addEventListener("click", () => {
+            state = {
+              items: defaultItems.map((it) => ({ ...it, owned: "" })),
+              dailyTask: "100",
+              currentPower: "",
+              anomalyPower: "",
+            };
+            render();
+          });
+          wrapper.appendChild(header);
+
+          const table = document.createElement("div");
+          table.className = "overflow-x-auto -mx-2 px-2";
+
+          const rows = state.items.map((it) => {
+            const owned = Number(it.owned || 0);
+            const score = Number(it.score || 0);
+            let total = 0;
+            switch (it.formula) {
+              case "mul":
+                total = score * owned;
+                break;
+              case "ten_div":
+                total = (owned / 10) * score;
+                break;
+              default:
+                total = score * owned;
+            }
+            return { ...it, total };
+          });
+
+          const dailyTaskTotal = Number(state.dailyTask || 0) * 7;
+          const sectionTotal = rows.reduce((sum, r) => sum + r.total, 0) + dailyTaskTotal;
+          const realPower = Number(state.currentPower || 0) - Number(state.anomalyPower || 0);
+
+          let tableHTML = `
+            <table class="w-full text-xs md:text-sm">
+              <thead class="text-left">
+                <tr class="border-b">
+                  <th class="py-2 pr-2 w-[32%]">名稱</th>
+                  <th class="py-2 pr-2">分數</th>
+                  <th class="py-2 pr-2">擁有</th>
+                  <th class="py-2 pr-2">總分</th>
+                </tr>
+              </thead>
+              <tbody>
+          `;
+
+          rows.forEach((r, idx) => {
+            tableHTML += `
+              <tr class="border-b">
+                <td class="py-1 pr-2 flex items-center gap-2">
+                  <img src="${r.img}" alt="${r.name}" class="w-8 h-8 object-contain" />
+                  <span class="truncate">${r.name}</span>
+                </td>
+                <td class="py-1 pr-2">
+                  <input type="number" value="${r.score}" class="w-full px-2 py-1 rounded-lg border text-right text-xs md:text-sm bg-gray-100" readonly />
+                </td>
+                <td class="py-1 pr-2">
+                  <input type="number" min="0" data-idx="${idx}" value="${state.items[idx].owned ?? ""}" class="owned-input w-full px-2 py-1 rounded-lg border text-right text-xs md:text-sm" />
+                </td>
+                <td class="py-1 pr-2 font-semibold text-right text-xs md:text-sm">${r.total.toLocaleString()}</td>
+              </tr>
+            `;
+          });
+
+          tableHTML += `
+            <tr>
+              <td class="py-1 pr-2 text-gray-600 text-xs">每日任務 ×7</td>
+              <td></td>
+              <td>
+                <input type="number" min="0" value="${state.dailyTask ?? ""}" id="dailyTask-${title}" class="w-full px-2 py-1 rounded-lg border text-right text-xs md:text-sm" />
+              </td>
+              <td class="py-1 pr-2 text-right font-semibold text-xs md:text-sm">${dailyTaskTotal.toLocaleString()}</td>
+            </tr>
+          </tbody></table>`;
+
+          table.innerHTML = tableHTML;
+          wrapper.appendChild(table);
+
+          // 加總分
+          const totalBox = document.createElement("div");
+          totalBox.className = "mt-4 p-2 rounded-xl bg-gray-50 border text-center";
+          totalBox.innerHTML = `
+            <div class="text-xs md:text-sm text-gray-600">總分</div>
+            <div class="text-xl md:text-2xl font-bold">${sectionTotal.toLocaleString()}</div>
+          `;
+          wrapper.appendChild(totalBox);
+
+          // 底部輸入與真實戰力
+          const bottom = document.createElement("div");
+          bottom.className = "mt-4 grid grid-cols-1 gap-3 md:grid-cols-3";
+          bottom.innerHTML = `
+            <div>
+              <div class="text-xs md:text-sm text-gray-600">目前戰力</div>
+              <input type="number" value="${state.currentPower ?? ""}" id="currentPower-${title}" class="w-full px-2 py-1 rounded-lg border text-right text-xs md:text-sm" />
+            </div>
+            <div>
+              <div class="text-xs md:text-sm text-gray-600">異常秘寶戰力</div>
+              <input type="number" value="${state.anomalyPower ?? ""}" id="anomalyPower-${title}" class="w-full px-2 py-1 rounded-lg border text-right text-xs md:text-sm" />
+            </div>
+            <div class="p-2 rounded-xl bg-gray-50 border flex flex-col items-center justify-center">
+              <div class="text-xs md:text-sm text-gray-600 text-center leading-snug">
+                真實戰力<br />(目前 - 異常)
+              </div>
+              <div class="text-xl md:text-2xl font-bold mt-1">${realPower.toLocaleString()}</div>
+            </div>
+          `;
+          wrapper.appendChild(bottom);
+
+          // 綁定事件 - 加 debounce 避免輸入跳走
+          let renderTimer = null;
+          const debounceRender = () => {
+            clearTimeout(renderTimer);
+            renderTimer = setTimeout(render, 300);
+          };
+
+          wrapper.querySelectorAll(".owned-input").forEach((input) => {
+            input.addEventListener("input", (e) => {
+              const idx = parseInt(e.target.dataset.idx);
+              state.items[idx].owned = e.target.value;
+              debounceRender();
+            });
+          });
+
+          wrapper.querySelector(`#dailyTask-${title}`).addEventListener("input", (e) => {
+            state.dailyTask = e.target.value;
+            debounceRender();
+          });
+
+          wrapper.querySelector(`#currentPower-${title}`).addEventListener("input", (e) => {
+            state.currentPower = e.target.value;
+            debounceRender();
+          });
+
+          wrapper.querySelector(`#anomalyPower-${title}`).addEventListener("input", (e) => {
+            state.anomalyPower = e.target.value;
+            debounceRender();
+          });
+        }
+
+        render();
+        container.appendChild(wrapper);
+      }
+
+      const app = document.getElementById("app");
+      createSection("LiRong", app);
+      createSection("XiaoHong", app);
+    </script>
+  </body>
+</html>
